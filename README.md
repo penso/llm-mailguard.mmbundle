@@ -113,8 +113,8 @@ llm-mailguard.mmbundle/
 
 ## Configuration Storage
 
-- **Settings**: `~/Library/Application Support/MailMate/LLMSpam/config.json`
-- **API Key**: macOS Keychain (service: `com.freron.MailMate.LLMSpam`)
+- **Settings**: `~/Library/Application Support/MailMate/LLMMailGuard/config.json`
+- **API Key**: macOS Keychain (service: `com.freron.MailMate.LLMMailGuard`)
 
 ## Troubleshooting
 

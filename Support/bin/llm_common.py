@@ -11,10 +11,10 @@ import urllib.request
 import urllib.error
 
 # Configuration paths
-CONFIG_DIR = os.path.expanduser("~/Library/Application Support/MailMate/LLMSpam")
+CONFIG_DIR = os.path.expanduser("~/Library/Application Support/MailMate/LLMMailGuard")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-KEYCHAIN_SERVICE = "com.freron.MailMate.LLMSpam"
-KEYCHAIN_ACCOUNT = "llm-spam-api-key"
+KEYCHAIN_SERVICE = "com.freron.MailMate.LLMMailGuard"
+KEYCHAIN_ACCOUNT = "llm-mailguard-api-key"
 MAILMATE_ICON = "/Applications/MailMate.app/Contents/Resources/MailMate.icns"
 
 # Default configuration values
