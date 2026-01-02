@@ -15,13 +15,13 @@ A MailMate bundle that uses Large Language Models (LLMs) to detect spam and phis
 ### Option 1: Symlink (for development)
 
 ```bash
-ln -s /path/to/llm-spam.mmbundle ~/Library/Application\ Support/MailMate/Bundles/
+ln -s /path/to/llm-mailguard.mmbundle ~/Library/Application\ Support/MailMate/Bundles/
 ```
 
 ### Option 2: Copy
 
 ```bash
-cp -r llm-spam.mmbundle ~/Library/Application\ Support/MailMate/Bundles/
+cp -r llm-mailguard.mmbundle ~/Library/Application\ Support/MailMate/Bundles/
 ```
 
 After installation, restart MailMate.
@@ -96,7 +96,7 @@ The bundle sends the complete raw email (all headers and body) to the LLM with a
 ## Files
 
 ```
-llm-spam.mmbundle/
+llm-mailguard.mmbundle/
 ├── info.plist                     # Bundle metadata
 ├── Commands/
 │   ├── Configure.mmCommand        # Configuration dialog
