@@ -1,0 +1,9 @@
+{
+	name          = 'Is it phishing?';
+	input         = 'raw';
+	output        = 'actions';
+	executionMode = 'singleMessage';
+	keyEquivalent = "^@L";
+	command       = '#!/bin/bash\n"${MM_BUNDLE_SUPPORT}/bin/check_phishing"';
+	uuid          = '8A3F2B91-C4D7-4E12-9F8A-5B7C6D0E1F23';
+}

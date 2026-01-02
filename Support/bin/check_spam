@@ -5,17 +5,12 @@ Check a single email for spam using an LLM API.
 Reads raw email from stdin, sends to LLM, and returns actions based on result.
 """
 
-import json
-import os
-import subprocess
 import sys
-import urllib.request
-import urllib.error
-
-CONFIG_DIR = os.path.expanduser("~/Library/Application Support/MailMate/LLMSpam")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-KEYCHAIN_SERVICE = "com.freron.MailMate.LLMSpam"
-KEYCHAIN_ACCOUNT = "llm-spam-api-key"
+from llm_common import (
+    show_alert, show_threat_dialog, load_config,
+    get_api_key_from_keychain, call_llm_api,
+    output_actions, move_to_junk_action
+)
 
 SYSTEM_PROMPT = """You are an email spam classifier. Analyze the following raw email (including all headers and body) and determine if it is spam.
 
@@ -34,229 +29,78 @@ NOT_SPAM: [brief reason]
 
 Be concise in your reason (one sentence)."""
 
-
-def run_applescript(script):
-    """Run AppleScript and return the result."""
-    try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            return None
-        return result.stdout.strip()
-    except Exception:
-        return None
+TITLE = "LLM Spam Classifier"
 
 
-MAILMATE_ICON = "/Applications/MailMate.app/Contents/Resources/MailMate.icns"
-
-
-def escape_for_applescript(text):
-    """Escape text for use in AppleScript strings."""
-    # Escape backslashes first, then quotes
-    text = text.replace("\\", "\\\\")
-    text = text.replace('"', '\\"')
-    return text
-
-
-def show_alert(message, title="LLM Spam Classifier"):
-    """Show an AppleScript alert (blocking) with MailMate icon."""
-    message = escape_for_applescript(message)
-    title = escape_for_applescript(title)
-    script = f'''
-    set iconPath to POSIX file "{MAILMATE_ICON}"
-    tell application "System Events"
-        display dialog "{message}" with title "{title}" buttons {{"OK"}} default button "OK" with icon iconPath
-    end tell
-    '''
-    run_applescript(script)
-
-
-def show_spam_dialog(reason):
-    """Show dialog asking if user wants to move spam to Junk. Returns True if yes."""
-    reason = escape_for_applescript(reason)
-    script = f'''
-    set iconPath to POSIX file "{MAILMATE_ICON}"
-    tell application "System Events"
-        set dialogResult to display dialog "SPAM DETECTED
-
-Reason: {reason}
-
-Move to Junk folder?" buttons {{"Keep", "Move to Junk"}} default button "Move to Junk" with title "LLM Spam Classifier" with icon iconPath
-        return button returned of dialogResult
-    end tell
-    '''
-    result = run_applescript(script)
-    return result == "Move to Junk"
-
-
-def load_config():
-    """Load configuration from JSON file."""
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return None
-
-
-def get_api_key_from_keychain():
-    """Retrieve API key from macOS Keychain."""
-    try:
-        result = subprocess.run(
-            [
-                "/usr/bin/security",
-                "find-generic-password",
-                "-a", KEYCHAIN_ACCOUNT,
-                "-s", KEYCHAIN_SERVICE,
-                "-w"
-            ],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return None
-
-
-def call_llm_api(endpoint, model, api_key, email_content):
-    """Call the LLM API and return the response text."""
-    headers = {
-        "Content-Type": "application/json",
-    }
-    
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    
-    # Truncate email if too long (most APIs have token limits)
-    max_chars = 30000  # Conservative limit
-    if len(email_content) > max_chars:
-        email_content = email_content[:max_chars] + "\n\n[... truncated due to length ...]"
-    
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": email_content}
-        ],
-        "max_tokens": 256,
-        "temperature": 0.1  # Low temperature for more consistent classification
-    }
-    
-    data = json.dumps(payload).encode("utf-8")
-    
-    req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
-    
-    try:
-        with urllib.request.urlopen(req, timeout=60) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            # Handle OpenAI-compatible response format
-            if "choices" in result and len(result["choices"]) > 0:
-                return result["choices"][0]["message"]["content"]
-            return None
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8") if e.fp else ""
-        raise Exception(f"API error {e.code}: {error_body}")
-    except urllib.error.URLError as e:
-        raise Exception(f"Connection error: {e.reason}")
-
-
-def parse_llm_response(response):
+def parse_response(response):
     """Parse LLM response to determine spam status and reason."""
     response = response.strip()
-    
-    # Look for SPAM: or NOT_SPAM: prefix
     upper_response = response.upper()
     
     if upper_response.startswith("SPAM:"):
-        reason = response[5:].strip()
-        return True, reason
+        return True, response[5:].strip()
     elif upper_response.startswith("NOT_SPAM:"):
-        reason = response[9:].strip()
-        return False, reason
+        return False, response[9:].strip()
     elif upper_response.startswith("NOT SPAM:"):
-        reason = response[9:].strip()
-        return False, reason
+        return False, response[9:].strip()
     else:
         # Fallback: check if response contains spam indicators
         if "SPAM" in upper_response and "NOT" not in upper_response:
             return True, response
-        else:
-            return False, response
+        return False, response
 
 
 def main():
     # Load configuration
     config = load_config()
     if not config:
-        show_alert("LLM Spam Classifier is not configured.\n\nPlease run Command > LLM Spam Classifier > Configure first.")
-        print(json.dumps({"actions": []}))
+        show_alert("LLM Spam Classifier is not configured.\n\nPlease run Command > LLM Spam Classifier > Configure first.", TITLE)
+        output_actions()
         return
     
     endpoint = config.get("endpoint")
     model = config.get("model")
     
     if not endpoint or not model:
-        show_alert("LLM Spam Classifier configuration is incomplete.\n\nPlease run Configure again.")
-        print(json.dumps({"actions": []}))
+        show_alert("LLM Spam Classifier configuration is incomplete.\n\nPlease run Configure again.", TITLE)
+        output_actions()
         return
     
     # Get API key from Keychain
     api_key = get_api_key_from_keychain()
     
-    # Some local endpoints don't need an API key, so we only warn but don't fail
-    # if not api_key and "localhost" not in endpoint and "127.0.0.1" not in endpoint:
-    #     show_alert("No API key found. Please run Configure to set your API key.")
-    #     print(json.dumps({"actions": []}))
-    #     return
-    
     # Read raw email from stdin
     raw_email = sys.stdin.read()
     
     if not raw_email.strip():
-        show_alert("No email content received.")
-        print(json.dumps({"actions": []}))
+        show_alert("No email content received.", TITLE)
+        output_actions()
         return
     
     # Call LLM API
     try:
-        response = call_llm_api(endpoint, model, api_key, raw_email)
+        response = call_llm_api(endpoint, model, api_key, SYSTEM_PROMPT, raw_email)
     except Exception as e:
-        show_alert(f"Error calling LLM API:\n\n{str(e)}")
-        print(json.dumps({"actions": []}))
+        show_alert(f"Error calling LLM API:\n\n{str(e)}", TITLE)
+        output_actions()
         return
     
     if not response:
-        show_alert("No response received from LLM API.")
-        print(json.dumps({"actions": []}))
+        show_alert("No response received from LLM API.", TITLE)
+        output_actions()
         return
     
     # Parse response
-    is_spam, reason = parse_llm_response(response)
+    is_spam, reason = parse_response(response)
     
     if is_spam:
-        # Ask user if they want to move to Junk
-        if show_spam_dialog(reason):
-            # Return action to move to Junk
-            print(json.dumps({
-                "actions": [
-                    {
-                        "type": "moveMessage",
-                        "mailboxType": "junk"
-                    }
-                ]
-            }))
+        if show_threat_dialog("SPAM DETECTED", reason, TITLE):
+            output_actions([move_to_junk_action()])
         else:
-            print(json.dumps({"actions": []}))
+            output_actions()
     else:
-        # Not spam - show alert
-        show_alert(f"This email does not appear to be spam.\n\nReason: {reason}")
-        print(json.dumps({"actions": []}))
+        show_alert(f"This email does not appear to be spam.\n\nReason: {reason}", TITLE)
+        output_actions()
 
 
 if __name__ == "__main__":

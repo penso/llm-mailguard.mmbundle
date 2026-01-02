@@ -5,144 +5,21 @@ Configure LLM Spam Classifier settings.
 Stores API key in macOS Keychain and other settings in a JSON config file.
 """
 
-import json
-import os
-import subprocess
 import sys
-
-CONFIG_DIR = os.path.expanduser("~/Library/Application Support/MailMate/LLMSpam")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-KEYCHAIN_SERVICE = "com.freron.MailMate.LLMSpam"
-KEYCHAIN_ACCOUNT = "llm-spam-api-key"
-
-
-def run_applescript(script):
-    """Run AppleScript and return the result."""
-    try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            return None
-        return result.stdout.strip()
-    except Exception:
-        return None
-
-
-MAILMATE_ICON = "/Applications/MailMate.app/Contents/Resources/MailMate.icns"
-
-
-def escape_for_applescript(text):
-    """Escape text for use in AppleScript strings."""
-    text = text.replace("\\", "\\\\")
-    text = text.replace('"', '\\"')
-    return text
-
-
-def show_dialog(message, default_answer="", hidden=False):
-    """Show an AppleScript input dialog with MailMate icon."""
-    message = escape_for_applescript(message)
-    default_answer = escape_for_applescript(default_answer)
-    hidden_str = "with hidden answer" if hidden else ""
-    script = f'''
-    set iconPath to POSIX file "{MAILMATE_ICON}"
-    tell application "System Events"
-        set dialogResult to display dialog "{message}" default answer "{default_answer}" {hidden_str} buttons {{"Cancel", "OK"}} default button "OK" with title "LLM Spam Classifier" with icon iconPath
-        return text returned of dialogResult
-    end tell
-    '''
-    return run_applescript(script)
-
-
-def show_alert(message, title="LLM Spam Classifier"):
-    """Show an AppleScript alert with MailMate icon."""
-    message = escape_for_applescript(message)
-    title = escape_for_applescript(title)
-    script = f'''
-    set iconPath to POSIX file "{MAILMATE_ICON}"
-    tell application "System Events"
-        display dialog "{message}" with title "{title}" buttons {{"OK"}} default button "OK" with icon iconPath
-    end tell
-    '''
-    run_applescript(script)
-
-
-def load_config():
-    """Load existing configuration if available."""
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-
-def save_config(config):
-    """Save configuration to JSON file."""
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=2)
-
-
-def get_api_key_from_keychain():
-    """Retrieve API key from macOS Keychain."""
-    try:
-        result = subprocess.run(
-            [
-                "/usr/bin/security",
-                "find-generic-password",
-                "-a", KEYCHAIN_ACCOUNT,
-                "-s", KEYCHAIN_SERVICE,
-                "-w"
-            ],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return None
-
-
-def save_api_key_to_keychain(api_key):
-    """Save API key to macOS Keychain."""
-    # First try to delete any existing entry
-    subprocess.run(
-        [
-            "/usr/bin/security",
-            "delete-generic-password",
-            "-a", KEYCHAIN_ACCOUNT,
-            "-s", KEYCHAIN_SERVICE
-        ],
-        capture_output=True
-    )
-    
-    # Add the new entry
-    result = subprocess.run(
-        [
-            "/usr/bin/security",
-            "add-generic-password",
-            "-a", KEYCHAIN_ACCOUNT,
-            "-s", KEYCHAIN_SERVICE,
-            "-w", api_key,
-            "-U"
-        ],
-        capture_output=True
-    )
-    return result.returncode == 0
+from llm_common import (
+    DEFAULT_PROVIDER, DEFAULT_ENDPOINT, DEFAULT_MODEL,
+    show_dialog, show_alert, load_config, save_config,
+    get_api_key_from_keychain, save_api_key_to_keychain
+)
 
 
 def main():
     # Load existing config
-    config = load_config()
+    config = load_config() or {}
     existing_key = get_api_key_from_keychain()
     
     # Provider Name
-    default_name = config.get("provider_name", "OpenAI")
+    default_name = config.get("provider_name", DEFAULT_PROVIDER)
     provider_name = show_dialog(
         "Enter the LLM provider name:",
         default_answer=default_name
@@ -151,7 +28,7 @@ def main():
         sys.exit(0)  # User cancelled
     
     # Endpoint URL
-    default_endpoint = config.get("endpoint", "https://api.openai.com/v1/chat/completions")
+    default_endpoint = config.get("endpoint", DEFAULT_ENDPOINT)
     endpoint = show_dialog(
         "Enter the API endpoint URL:",
         default_answer=default_endpoint
@@ -160,7 +37,7 @@ def main():
         sys.exit(0)
     
     # Model
-    default_model = config.get("model", "gpt-4o-mini")
+    default_model = config.get("model", DEFAULT_MODEL)
     model = show_dialog(
         "Enter the model name:",
         default_answer=default_model

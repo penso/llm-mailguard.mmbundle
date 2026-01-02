@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Check a single email for phishing or hacking attempts using an LLM API.
+Reads raw email from stdin, sends to LLM, and returns actions based on result.
+"""
+
+import sys
+from llm_common import (
+    show_alert, show_threat_dialog, load_config,
+    get_api_key_from_keychain, call_llm_api,
+    output_actions, move_to_junk_action
+)
+
+SYSTEM_PROMPT = """You are a cybersecurity expert specialized in detecting phishing and hacking attempts in emails. Analyze the following raw email (including all headers and body) and determine if it is a phishing or hacking attempt.
+
+IMPORTANT: Only flag emails that are ACTUAL phishing or hacking attempts. Do NOT flag:
+- Legitimate password reset emails from real services
+- Genuine security alerts from banks, services, or companies
+- Real order confirmations or shipping notifications
+- Authentic two-factor authentication codes
+- Normal business correspondence
+
+Focus ONLY on detecting these malicious indicators:
+- Sender domain that impersonates a legitimate company (e.g., "paypa1.com" instead of "paypal.com")
+- Mismatched Reply-To headers designed to redirect responses to attackers
+- Links that display one URL but actually point to a different, suspicious domain
+- Urgent threats demanding immediate action (account suspension, legal action) to create panic
+- Requests to provide credentials, passwords, SSNs, or financial information via email or suspicious forms
+- Attachments designed to install malware (unexpected .exe, .zip, .js, .docm files)
+- Headers showing email originated from unexpected countries/servers inconsistent with claimed sender
+- CEO fraud / Business Email Compromise (requests for wire transfers, gift cards from "executives")
+- Clone phishing (copies of legitimate emails with malicious links substituted)
+- Credential harvesting pages disguised as login forms
+
+Respond with EXACTLY one of these two formats:
+PHISHING: [brief reason explaining the specific malicious technique detected]
+NOT_PHISHING: [brief reason]
+
+Be concise in your reason (one sentence). When in doubt, lean toward NOT_PHISHING to avoid false positives on legitimate emails."""
+
+TITLE = "LLM Phishing Detector"
+
+
+def parse_response(response):
+    """Parse LLM response to determine phishing status and reason."""
+    response = response.strip()
+    upper_response = response.upper()
+    
+    if upper_response.startswith("NOT_PHISHING:"):
+        return False, response[13:].strip()
+    elif upper_response.startswith("NOT PHISHING:"):
+        return False, response[13:].strip()
+    elif upper_response.startswith("PHISHING:"):
+        return True, response[9:].strip()
+    else:
+        # Fallback: check if response contains phishing indicators
+        if "PHISHING" in upper_response and "NOT" not in upper_response:
+            return True, response
+        return False, response
+
+
+def main():
+    # Load configuration
+    config = load_config()
+    if not config:
+        show_alert("LLM Phishing Detector is not configured.\n\nPlease run Command > LLM Spam Classifier > Configure first.", TITLE)
+        output_actions()
+        return
+    
+    endpoint = config.get("endpoint")
+    model = config.get("model")
+    
+    if not endpoint or not model:
+        show_alert("LLM Phishing Detector configuration is incomplete.\n\nPlease run Configure again.", TITLE)
+        output_actions()
+        return
+    
+    # Get API key from Keychain
+    api_key = get_api_key_from_keychain()
+    
+    # Read raw email from stdin
+    raw_email = sys.stdin.read()
+    
+    if not raw_email.strip():
+        show_alert("No email content received.", TITLE)
+        output_actions()
+        return
+    
+    # Call LLM API
+    try:
+        response = call_llm_api(endpoint, model, api_key, SYSTEM_PROMPT, raw_email)
+    except Exception as e:
+        show_alert(f"Error calling LLM API:\n\n{str(e)}", TITLE)
+        output_actions()
+        return
+    
+    if not response:
+        show_alert("No response received from LLM API.", TITLE)
+        output_actions()
+        return
+    
+    # Parse response
+    is_phishing, reason = parse_response(response)
+    
+    if is_phishing:
+        if show_threat_dialog("PHISHING ATTEMPT DETECTED", reason, TITLE):
+            output_actions([move_to_junk_action()])
+        else:
+            output_actions()
+    else:
+        show_alert(f"This email does not appear to be a phishing attempt.\n\nReason: {reason}", TITLE)
+        output_actions()
+
+
+if __name__ == "__main__":
+    main()
