@@ -1,4 +1,4 @@
-# LLM Spam Classifier for MailMate
+# LLM Spam & Phishing Detector for MailMate
 
 A MailMate bundle that uses Large Language Models (LLMs) to detect spam and phishing emails.
 
