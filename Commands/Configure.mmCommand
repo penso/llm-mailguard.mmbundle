@@ -1,0 +1,7 @@
+{
+	name          = 'Configure...';
+	input         = 'none';
+	executionMode = 'noMessages';
+	command       = '#!/bin/bash\n"${MM_BUNDLE_SUPPORT}/bin/configure"';
+	uuid          = '750E46C8-6C63-40F9-A840-BD884A0E7227';
+}

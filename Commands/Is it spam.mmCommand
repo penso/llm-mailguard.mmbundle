@@ -1,0 +1,9 @@
+{
+	name          = 'Is it spam?';
+	input         = 'raw';
+	output        = 'actions';
+	executionMode = 'singleMessage';
+	keyEquivalent = "^L";
+	command       = '#!/bin/bash\n"${MM_BUNDLE_SUPPORT}/bin/check_spam"';
+	uuid          = '2DD28685-F890-4007-B207-166ECE6A2CAD';
+}
