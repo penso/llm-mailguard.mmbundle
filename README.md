@@ -1,13 +1,14 @@
 # LLM Spam Classifier for MailMate
 
-A MailMate bundle that uses Large Language Models (LLMs) to classify emails as spam.
+A MailMate bundle that uses Large Language Models (LLMs) to detect spam and phishing emails.
 
 ## Features
 
 - Classify emails as spam using any OpenAI-compatible LLM API
-- Supports OpenAI, Anthropic, Ollama, LM Studio, and other compatible endpoints
+- Detect phishing and hacking attempts with a specialized prompt
+- Supports OpenAI, Ollama, LM Studio, and other compatible endpoints
 - API key stored securely in macOS Keychain
-- Option to move detected spam to Junk folder
+- Option to move detected threats to Junk folder
 
 ## Installation
 
@@ -39,7 +40,7 @@ After installation, restart MailMate.
 #### OpenAI
 
 - Endpoint: `https://api.openai.com/v1/chat/completions`
-- Model: `gpt-4o-mini` (cost-effective) or `gpt-4o` (more accurate)
+- Model: `gpt-5.2` or other recent models
 - API Key: Your OpenAI API key
 
 #### Anthropic (via OpenAI-compatible endpoint)
@@ -65,10 +66,14 @@ Note: Anthropic's native API format differs slightly. For best results, use an O
 ## Usage
 
 1. Select one or more emails in MailMate
-2. Press `Ctrl+L` or go to **Command > LLM Spam Classifier > Is it spam?**
+2. Choose a detection method:
+   - Press `Ctrl+L` or go to **Command > LLM Spam Classifier > Is it spam?** for general spam detection
+   - Press `Ctrl+Shift+L` or go to **Command > LLM Spam Classifier > Is it phishing?** for phishing/hacking detection
 3. For each email, the LLM will analyze it and report:
-   - If **spam**: You'll be asked if you want to move it to Junk
-   - If **not spam**: A notification will confirm it appears legitimate
+   - If **threat detected**: You'll be asked if you want to move it to Junk
+   - If **safe**: A notification will confirm it appears legitimate
+
+The phishing detector uses a more targeted prompt that reduces false positives on legitimate emails like password resets, security alerts, and order confirmations.
 
 **Note**: Each selected message triggers one LLM API call. Be mindful of costs when selecting many messages.
 
@@ -83,9 +88,10 @@ The bundle sends the complete raw email (all headers and body) to the LLM with a
 - Spoofed headers
 - Social engineering tactics
 
-## Keyboard Shortcut
+## Keyboard Shortcuts
 
 - `Ctrl+L` - Check selected email(s) for spam
+- `Ctrl+Shift+L` - Check selected email(s) for phishing
 
 ## Files
 
@@ -94,11 +100,14 @@ llm-spam.mmbundle/
 ├── info.plist                     # Bundle metadata
 ├── Commands/
 │   ├── Configure.mmCommand        # Configuration dialog
-│   └── Is it spam.mmCommand       # Spam check command
+│   ├── Is it spam.mmCommand       # Spam check command
+│   └── Is it phishing.mmCommand   # Phishing check command
 ├── Support/
 │   └── bin/
+│       ├── llm_common.py          # Shared utilities
 │       ├── configure              # Configuration script
-│       └── check_spam             # LLM API caller
+│       ├── check_spam             # Spam detection script
+│       └── check_phishing         # Phishing detection script
 └── README.md
 ```
 
@@ -147,6 +156,4 @@ defaults write com.freron.MailMate MmDebugCommands -bool YES
 
 ## License
 
-Permission to copy, use, modify, sell and distribute this software is granted.
-This software is provided "as is" without express or implied warranty, and with
-no claim as to its suitability for any purpose.
+MIT License. See [LICENSE](LICENSE) for details.
