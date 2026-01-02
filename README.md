@@ -67,8 +67,8 @@ Note: Anthropic's native API format differs slightly. For best results, use an O
 
 1. Select an email in MailMate
 2. Choose a detection method:
-   - Press `Ctrl+L` or go to **Command > LLM MailGuard > Is it spam?** for general spam detection
-   - Press `Ctrl+Shift+L` or go to **Command > LLM MailGuard > Is it phishing?** for phishing/hacking detection
+   - Press `Ctrl+Shift+L` or go to **Command > LLM MailGuard > Is it spam?** for general spam detection
+   - Press `Ctrl+Shift+Cmd+L` or go to **Command > LLM MailGuard > Is it phishing?** for phishing/hacking detection
 3. For each email, the LLM will analyze it and report:
    - If **threat detected**: You'll be asked if you want to move it to Junk
    - If **safe**: A notification will confirm it appears legitimate
@@ -90,8 +90,8 @@ The bundle sends the complete raw email (all headers and body) to the LLM with a
 
 ## Keyboard Shortcuts
 
-- `Ctrl+L` - Check selected email(s) for spam
-- `Ctrl+Shift+L` - Check selected email(s) for phishing
+- `Ctrl+Shift+L` - Check selected email for spam
+- `Ctrl+Shift+Cmd+L` - Check selected email for phishing
 
 ## Files
 
